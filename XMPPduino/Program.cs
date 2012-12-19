@@ -8,20 +8,26 @@ using agsXMPP.protocol;
 using agsXMPP.protocol.client;
 using System.IO.Ports;
 
-namespace XMPPduino
-{
-    class Program
-    {
-        private static System.IO.Ports.SerialPort serialPort1;
+namespace XMPPduino {
+    class Program {
+        private static System.IO.Ports.SerialPort serialPort;
 
         static bool _bWait;
+        static bool loggedIn = false;
+
         private static XmppClientConnection client = null;
+        public static XmppClientConnection xmppCon;
 
-        static void Main(string[] args)
-        {
-            XmppClientConnection xmppCon = new XmppClientConnection();
+        static void Main(string[] args) {
+            Console.Title = "XMPPduino";
 
-            Console.Title = "Console Client";
+            xmppCon = new XmppClientConnection();
+
+            System.ComponentModel.IContainer components = new System.ComponentModel.Container();
+            serialPort = new System.IO.Ports.SerialPort(components);
+
+            serialPort.PortName = Config.COM_PORT;
+            serialPort.BaudRate = Config.Baud_Rate;
 
             xmppCon = new XmppClientConnection();
             xmppCon.Username = Config.Username;
@@ -37,37 +43,28 @@ namespace XMPPduino
             xmppCon.AutoAgents = false;
             xmppCon.AutoPresence = true;
             xmppCon.AutoRoster = true;
- 
-            try
-            {
+
+            try {
                 xmppCon.OnRosterStart += new ObjectHandler(xmppCon_OnRosterStart);
                 xmppCon.OnRosterItem += new XmppClientConnection.RosterHandler(xmppCon_OnRosterItem);
                 xmppCon.OnRosterEnd += new ObjectHandler(xmppCon_OnRosterEnd);
                 xmppCon.OnPresence += new PresenceHandler(xmppCon_OnPresence);
                 xmppCon.OnMessage += new MessageHandler(xmppCon_OnMessage);
                 xmppCon.OnLogin += new ObjectHandler(xmppCon_OnLogin);
-
                 xmppCon.Open();
-
             }
-            catch (Exception e)
-            {
+            catch (Exception e) {
                 Console.WriteLine(e.Message);
             }
 
             Wait("Login to server, please wait");
-
-            PrintCommands();
-
             bool bQuit = false;
 
-            while (!bQuit)
-            {
+            while (!bQuit) {
                 string command = Console.ReadLine();
                 string[] commands = command.Split(' ');
 
-                switch (commands[0].ToLower())
-                {
+                switch (commands[0].ToLower()) {
                     case "help":
                         PrintCommands();
                         break;
@@ -79,8 +76,7 @@ namespace XMPPduino
                         xmppCon.Send(new Message(new Jid(commands[1]), MessageType.chat, msg));
                         break;
                     case "status":
-                        switch (commands[1])
-                        {
+                        switch (commands[1]) {
                             case "online":
                                 xmppCon.Show = ShowType.NONE;
                                 break;
@@ -105,8 +101,7 @@ namespace XMPPduino
             xmppCon.Close();
         }
 
-        private static void PrintCommands()
-        {
+        private static void PrintCommands() {
             PrintHelp("You are logged in to the server now.");
             PrintHelp("");
             PrintHelp("Available commands are:");
@@ -122,139 +117,88 @@ namespace XMPPduino
             PrintHelp("");
         }
 
-        private static void Wait(string statusMessage)
-        {
+        private static void Wait(string statusMessage) {
             int i = 0;
             _bWait = true;
-
-            while (_bWait)
-            {
+            while (_bWait) {
                 i++;
                 if (i == 60)
                     _bWait = false;
-
                 Thread.Sleep(500);
             }
         }
 
-        static void xmppCon_OnLogin(object sender)
-        {
+        static void xmppCon_OnLogin(object sender) {
+
             Console.WriteLine();
             PrintEvent("Logged in to server");
+
+            serialPort.Open();
+            if (!serialPort.IsOpen) {
+                Console.WriteLine("Oops");
+                return;
+            }
+            loggedIn = true;
+
+            serialPort.DtrEnable = true;
+            serialPort.DataReceived += OnReceived;
+
+            // give it 2 secs to start up the sketch
+            System.Threading.Thread.Sleep(2000);
+
+            
         }
 
-        static void xmppCon_OnRosterEnd(object sender)
-        {
+        static void xmppCon_OnRosterEnd(object sender) {
             _bWait = false;
             Console.WriteLine();
             PrintInfo("All contacts received");
         }
 
-        static void xmppCon_OnRosterItem(object sender, agsXMPP.protocol.iq.roster.RosterItem item)
-        {
+        static void xmppCon_OnRosterItem(object sender, agsXMPP.protocol.iq.roster.RosterItem item) {
             PrintInfo(String.Format("Got contact: {0}", item.Jid));
         }
 
-        static void xmppCon_OnRosterStart(object sender)
-        {
+        static void xmppCon_OnRosterStart(object sender) {
             PrintEvent("Getting contacts now");
         }
 
-        static void xmppCon_OnPresence(object sender, Presence pres)
-        {
+        static void xmppCon_OnPresence(object sender, Presence pres) {
             PrintInfo(String.Format("Got presence from: {0}", pres.From.ToString()));
             PrintInfo(String.Format("type: {0}", pres.Type.ToString()));
             PrintInfo(String.Format("status: {0}", pres.Status));
             PrintInfo("");
         }
 
-        static void xmppCon_OnMessage(object sender, Message msg)
-        {
-
-            if (msg.Body != null)
-            {
-                PrintEvent(String.Format("Got message from: {0}", msg.From.ToString()));
-                PrintEvent("message: " + msg.Body);
-                PrintInfo("");
+        static void xmppCon_OnMessage(object sender, Message msg) {
+            if (msg.Body != null) {
+                //PrintEvent(String.Format("Got message from: {0}", msg.From.ToString()));
+                PrintEvent("XMPP: " + msg.Body);
+                serialPort.Write(msg.Body);
             }
         }
 
-        static void PrintEvent(string msg)
-        {
-            ConsoleColor current = Console.BackgroundColor;
-
-            Console.BackgroundColor = ConsoleColor.DarkGreen;
+        static void PrintEvent(string msg) {
             Console.WriteLine(msg);
-
-            Console.BackgroundColor = current;
         }
 
-        static void PrintInfo(string msg)
-        {
-            ConsoleColor current = Console.BackgroundColor;
-
-            Console.BackgroundColor = ConsoleColor.Red;
+        static void PrintInfo(string msg) {
             Console.WriteLine(msg);
-
-            Console.BackgroundColor = current;
         }
 
-        static void PrintHelp(string msg)
-        {
-            ConsoleColor current = Console.ForegroundColor;
-
-            Console.ForegroundColor = ConsoleColor.Yellow;
+        static void PrintHelp(string msg) {
             Console.WriteLine(msg);
-
-            Console.ForegroundColor = current;
         }
 
-        //static void Main(string[] args)
-        //{
-
-        //System.ComponentModel.IContainer components = new System.ComponentModel.Container();
-        //serialPort1 = new System.IO.Ports.SerialPort(components);
-        //serialPort1.PortName = "COM3";
-        //serialPort1.BaudRate = 115200;
-
-        //serialPort1.Open();
-        //if (!serialPort1.IsOpen)
-        //{
-        //    Console.WriteLine("Oops");
-        //    return;
-        //}
-
-        //// this turns on !
-        //serialPort1.DtrEnable = true;
-
-        //// callback for text coming back from the arduino
-        //serialPort1.DataReceived += OnReceived;
-
-        //// give it 2 secs to start up the sketch
-        //System.Threading.Thread.Sleep(2000);
-
-        //using (serialPort1)
-        //{
-        //    Console.WriteLine("sending green command");
-        //    serialPort1.Write(new byte[] { 114 }, 0, 1);
-        //    System.Threading.Thread.Sleep(1000);
-
-        //    Console.WriteLine("sending red command");
-        //    serialPort1.Write(new byte[] { 103 }, 0, 1);
-
-        //    System.Threading.Thread.Sleep(15000);
-        //}
-        //}
-
-        //private static void OnReceived(object sender, SerialDataReceivedEventArgs c)
-        //{
-        //    int ch;
-        //    try
-        //    {
-        //        // write out text coming back from the arduino
-        //        Console.Write(serialPort1.ReadExisting());
-        //    }
-        //    catch (Exception exc) { }
-        //}
+        private static void OnReceived(object sender, SerialDataReceivedEventArgs c) {
+            try {
+                //Console.Write(serialPort.ReadExisting());
+                if (loggedIn) {
+                    string msg = serialPort.ReadExisting();
+                    xmppCon.Send(new Message(new Jid(Config.Receiver), MessageType.chat, msg));
+                }
+            }
+            catch (Exception exc) { }
+        }
     }
 }
