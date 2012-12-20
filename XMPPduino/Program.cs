@@ -1,10 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading;
 using agsXMPP;
-using agsXMPP.protocol;
 using agsXMPP.protocol.client;
 using System.IO.Ports;
 
@@ -65,9 +61,6 @@ namespace XMPPduino {
                 string[] commands = command.Split(' ');
 
                 switch (commands[0].ToLower()) {
-                    case "help":
-                        PrintCommands();
-                        break;
                     case "quit":
                         bQuit = true;
                         break;
@@ -96,25 +89,7 @@ namespace XMPPduino {
                         break;
                 }
             }
-
-            // close connection
             xmppCon.Close();
-        }
-
-        private static void PrintCommands() {
-            PrintHelp("You are logged in to the server now.");
-            PrintHelp("");
-            PrintHelp("Available commands are:");
-            PrintHelp("msg toJid text");
-            PrintHelp("status show{online, away, xa, chat} status");
-            PrintHelp("help");
-            PrintHelp("quit");
-            PrintHelp("");
-            PrintHelp("Examples:");
-            PrintHelp("msg test@server.com Hello World");
-            PrintHelp("msg test@server.com/Office Hello World");
-            PrintHelp("status chat free for chat");
-            PrintHelp("");
         }
 
         private static void Wait(string statusMessage) {
@@ -145,8 +120,6 @@ namespace XMPPduino {
 
             // give it 2 secs to start up the sketch
             System.Threading.Thread.Sleep(2000);
-
-            
         }
 
         static void xmppCon_OnRosterEnd(object sender) {
@@ -172,9 +145,8 @@ namespace XMPPduino {
 
         static void xmppCon_OnMessage(object sender, Message msg) {
             if (msg.Body != null) {
-                //PrintEvent(String.Format("Got message from: {0}", msg.From.ToString()));
                 PrintEvent("XMPP: " + msg.Body);
-                serialPort.Write(msg.Body);
+                serialPort.Write(":" + msg.Body);
             }
         }
 
@@ -192,10 +164,14 @@ namespace XMPPduino {
 
         private static void OnReceived(object sender, SerialDataReceivedEventArgs c) {
             try {
-                //Console.Write(serialPort.ReadExisting());
                 if (loggedIn) {
                     string msg = serialPort.ReadExisting();
+                    msg = msg.Replace(Environment.NewLine, "");
+                    if (msg.Equals("MBX:Open"))
+                        msg = "You've got mail!";
+
                     xmppCon.Send(new Message(new Jid(Config.Receiver), MessageType.chat, msg));
+                    Console.WriteLine("RECV: " + msg);
                 }
             }
             catch (Exception exc) { }
