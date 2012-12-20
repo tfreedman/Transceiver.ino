@@ -1,12 +1,10 @@
-Mailbox
-=======
+#Mailbox
 
 Mailbox is a collection of scripts to send and receive data between an Arduino and an XMPP client, over a 433MHz RF link and a second Arduino. It looks something like this:
 
-=======                     =======             ==========================
-Arduino <-- 433MHz Link --> Arduino <-- USB --> Computer running XMPPduino <-- Google Talk / XMPP Server --> Pidgin
-=======                     =======             ==========================
-
+    =======                     =======             ==========================
+    Arduino <-- 433MHz Link --> Arduino <-- USB --> Computer running XMPPduino <-- XMPP Server --> XMPP Client
+    =======                     =======             ==========================
 It seems kind of pointless to send data over so many mediums, compared to just equipping a single Arduino with a WiFi card. However, there are numerous advantages to using a second Arduino to relay data to / from a network.
 
 Arduino network cards are very expensive. You could have a device that monitors a sensor and outputs the data over WiFi, but an Arduino network card is around $60. If you wanted to monitor multiple sensors within a small area, without running wires between each sensor, you'd be paying $60+ per sensor, just in networking equipment. With multiple sensors, this would get very expensive, very fast.
@@ -21,7 +19,7 @@ Mailbox.ino contains an example of a sensor on a remote Arduino. The sensor is m
 
 XMPPduino is a C# client program (Windows based, should work with Mono though) for sending and receiving messages over XMPP. Serial data is sent out to XMPP friends from the connected transceiver, and received XMPP messages are then broadcast by the transceiver back out over the 433MHz network.
 
-TODO:
+#TODO:
 
 - Publish Config.cs (configuration file) and switch to XML config
 - Add RDT wrapper over VirtualWire library
@@ -29,6 +27,6 @@ TODO:
 - Reduce XMPP spamming from Arduinos
 - Publish schematics for Transceiver / Mailbox devices
 
-LICENSE:
+#LICENSE:
 
 This code makes heavy use of VirtualWire and agsXMPP, both of which are GPLv2 licensed. Therefore, this code is also licensed under GPLv2.
